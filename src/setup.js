@@ -1,8 +1,10 @@
 const fs = require('fs')
+const chalk = require('chalk')
 const { prompt } = require('enquirer')
 const BoxSDK = require('box-node-sdk')
 const express = require('express')
 const config = require('./lib/config')
+const log = require('./lib/logger')
 const app = express()
 
 const questions = [
@@ -29,27 +31,28 @@ async function auth (req, res, clientCreds, box) {
   const tokenInfo = await box.getTokensAuthorizationCodeGrant(code)
   const client = box.getPersistentClient(tokenInfo)
   const user = await client.users.get(client.CURRENT_USER_ID)
-  const success = `Successfully authenticated as ${user.name} (${user.login}).`
+  const success = `✅ Successfully authenticated as ${user.name} (${user.login}).`
   const html = `<p>${success}</p><p>You can close this window now.</p>`
   
   config.set({ tokenInfo , clientCreds })
-  console.log(success)
+  log(success)
   res.send(html)
   process.exit()
 }
 
-function startServer (clientCreds,box, authUrl) {
+function startServer (clientCreds, box, authUrl) {
   app.get('/oauth', (req, res) => {
     auth(req, res, clientCreds, box)
   })
 
   app.listen(3000, () => {
-    console.log(`Go to ${authUrl} to authorize your Box account`)
+    log(`🚀 Go to ${chalk.bold(authUrl)} to authorize your Box account ${chalk.gray('(CTRL/CMD + Click to Open)')}.`)
   })
 }
 
 async function setup () {
-  const clientCreds = await prompt(questions)
+  const existingCreds = config.get()
+  const clientCreds = existingCreds ? existingCreds.clientCreds : await prompt(questions)
   const box = new BoxSDK(clientCreds)
   const authUrl = box.getAuthorizeURL(authDetails)
   
